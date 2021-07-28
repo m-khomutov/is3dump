@@ -44,6 +44,7 @@ class Block:
         if len(self._block) != 77:
             raise EOFError()
         self._stream_id = int.from_bytes(self._block[3:11], 'little')
+        self._timestamp = int.from_bytes(self._block[27:35], 'little')
         self._ts_rel = int.from_bytes(self._block[35:39], 'little')
         self._size = int.from_bytes(self._block[43:51], 'little')
         self._offset = int.from_bytes(self._block[51:59], 'little')
@@ -57,6 +58,11 @@ class Block:
     def stream_id(self):
         """returns block stream id in data file"""
         return self._stream_id
+
+    @property
+    def timestamp(self):
+        """returns block timestamp in data file"""
+        return self._timestamp
 
     @property
     def relative_timestamp(self):
@@ -76,7 +82,7 @@ class Block:
                " duration="+str(int.from_bytes(self._block[19:27], 'little')) + \
                " flags="+hex(int.from_bytes(self._block[11:19], 'little')) + \
                " block size="+str(self._size) + \
-               " timestamp="+str(int.from_bytes(self._block[27:35], 'little')) + \
+               " timestamp="+str(self._timestamp) + \
                " ts="+str(self._ts_rel) + \
                " dts="+str(int.from_bytes(self._block[39:43], 'little')) + \
                " offset="+str(self._offset) + \
@@ -86,6 +92,17 @@ class Block:
 class IndexIterator:
     """IStream3 index file iterator"""
     _file = None
+    _end = 0
+
+    def __next__(self):
+        try:
+            if self._file is not None:
+                block = Block(self._file)
+                if not self._end or block.timestamp <= self._end:
+                    return block
+            raise StopIteration
+        except EOFError:
+            raise StopIteration from None
 
     def filename(self, name):
         """Sets IStream3 index filename"""
@@ -93,19 +110,18 @@ class IndexIterator:
 
     filename = property(None, filename)
 
-    def __next__(self):
-        try:
-            if self._file is not None:
-                return Block(self._file)
-            raise StopIteration
-        except EOFError:
-            raise StopIteration from None
+    def end(self, stop):
+        """Sets IStream3 index timestamp to dump till"""
+        self._end = stop
+
+    end = property(None, end)
 
 
 class Index:
     """IStream3 index file"""
-    def __init__(self, path):
+    def __init__(self, path, last_timestamp):
         self._path = path
+        self._last_timestamp = last_timestamp
 
     @property
     def path(self):
@@ -115,6 +131,7 @@ class Index:
     def __iter__(self):
         index_iterator = IndexIterator()
         index_iterator.filename = self._path
+        index_iterator.end = self._last_timestamp
         return index_iterator
 
 
