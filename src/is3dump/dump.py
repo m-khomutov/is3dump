@@ -39,7 +39,7 @@ class Dump:
         print("params:\n\t-c(--channel) path to channel directory (req.)\n\t"
               "-i(--id) stream id (def. 0)\n\t"
               "-d(--dump) path to dumpfile(def. ./channel_id)\n\t"
-              "-r(--range) dumping range (from, to) (def. (begin, end)\n\t"
+              "-r(--range) dumping range (from, to) (def. (begin, end))\n\t"
               "-o(--override) override existing file (def. exit without overriding)\n\t"
               "-v(--verb) be verbose - show index blocks\n\t"
               "-h(--help) this help")
@@ -189,3 +189,8 @@ class AnnexBDump(Dump):
     def _ready_to_write(self):
         """Checks if block can be dumped"""
         return self._sps_dumped and self._pps_dumped
+
+def dump():
+    if (dumper := Dump.make(sys.argv[1:])) is not None:
+        dumper.write()
+
