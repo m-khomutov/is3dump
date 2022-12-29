@@ -1,5 +1,4 @@
 """Dumps stream from IStream3 channel by id"""
-import getopt
 import os
 import sys
 from enum import IntEnum
@@ -34,60 +33,9 @@ def id3(cls):
 class Dump:
     """IStream3 channel dumper - dumps a channel stream by id"""
     @staticmethod
-    def show_params():
-        """Shows command line parameters"""
-        print("params:\n\t-c(--channel) path to channel directory (req.)\n\t"
-              "-i(--id) stream id (def. 0)\n\t"
-              "-d(--dump) path to dumpfile(def. ./channel_id)\n\t"
-              "-r(--range) dumping range (from, to) (def. (begin, end))\n\t"
-              "-o(--override) override existing file (def. exit without overriding)\n\t"
-              "-v(--verb) be verbose - show index blocks\n\t"
-              "-h(--help) this help")
-        sys.exit()
-
-    @staticmethod
-    def get_params(argv):
-        """Returns command line parameters"""
-        channel_path = ''
-        stream_id = 0
-        dump_path = ''
-        dump_range = ()
-        is_verbose = False
-        override = False
-        opts = ()
-        try:
-            opts, remainder = getopt.getopt(argv,
-                                            "c:i:d:r:ovh",
-                                            ["channel=", "id=", "dump=", "range=",
-                                             "override", "verb", "help"])
-            if len(remainder):
-                raise getopt.GetoptError('invalid options: ' + ' '.join(remainder))
-        except getopt.GetoptError as opt_error:
-            print(opt_error)
-            Dump.show_params()
-        for opt, arg in opts:
-            if opt in ('-h', '--help'):
-                Dump.show_params()
-            elif opt in ('-c', '--channel'):
-                channel_path = arg
-            elif opt in ('-i', '--id'):
-                stream_id = int(arg)
-            elif opt in ('-d', '--dump'):
-                dump_path = arg
-            elif opt in ('-r', '--range'):
-                dump_range = tuple(int(k) if len(k) else 0 for k in arg.split(','))
-            elif opt in ('-o', '--override'):
-                override = True
-            elif opt in ('-v', '--verb'):
-                is_verbose = True
-        if len(channel_path) == 0:
-            Dump.show_params()
-        return channel_path, stream_id, dump_path, dump_range, override, is_verbose
-
-    @staticmethod
-    def make(argv):
+    def make(*params):
         """Creates Dumper object according to encoding name"""
-        channel_path, stream_id, dump_path, dump_range, override, verb = Dump.get_params(argv)
+        channel_path, stream_id, dump_path, dump_range, override, verb, *left = params
         channel_id = channel_path.split('/')[-1]
         try:
             channel = Channel(channel_path, stream_id)
@@ -190,7 +138,7 @@ class AnnexBDump(Dump):
         """Checks if block can be dumped"""
         return self._sps_dumped and self._pps_dumped
 
+
 def dump():
     if (dumper := Dump.make(sys.argv[1:])) is not None:
         dumper.write()
-

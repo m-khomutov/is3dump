@@ -1,6 +1,6 @@
 """Starts stream dumping from IStream3 channel"""
-from is3dump.dump import dump
+from is3dump.run import run
+
 
 if __name__ == '__main__':
-    dump()
-
+    run()

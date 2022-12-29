@@ -1,6 +1,7 @@
 """Module describes IStream3 data channel"""
 import os
 import json
+import struct
 
 
 class Channel:
@@ -18,7 +19,7 @@ class Channel:
                     return result
         return result
 
-    def __init__(self, path, stream_id):
+    def __init__(self, path, stream_id=0):
         if os.path.exists(path) is False:
             raise IOError(path)
 
@@ -39,54 +40,41 @@ class Channel:
 
 class Block:
     """IStream3 index entry"""
-    def __init__(self, fd):
+    def __init__(self, fd) -> None:
         self._block = fd.read(77)
         if len(self._block) != 77:
             raise EOFError()
-        self._stream_id = int.from_bytes(self._block[3:11], 'little')
-        self._timestamp = int.from_bytes(self._block[27:35], 'little')
-        self._ts_rel = int.from_bytes(self._block[35:39], 'little')
-        self._size = int.from_bytes(self._block[43:51], 'little')
-        self._offset = int.from_bytes(self._block[51:59], 'little')
+        self.entry_size,\
+            self.block_type,\
+            self.stream_type,\
+            self.stream_id,\
+            self.flags,\
+            self.duration,\
+            self.timestamp,\
+            self.ts_rel,\
+            self.dts_rel,\
+            self.block_size,\
+            self.offset,\
+            self.index,\
+            self.block_id,\
+            self.mark = struct.unpack('=BBBQQQQIIQQQQH', self._block)
+        if self.mark != 0xbabe:
+            raise EOFError
 
-    @property
-    def offset(self):
-        """returns block offset in data file"""
-        return self._offset
+    def __repr__(self):
+        return f'{self.__class__.__name__}(block_type={self.block_type})'
 
-    @property
-    def stream_id(self):
-        """returns block stream id in data file"""
-        return self._stream_id
-
-    @property
-    def timestamp(self):
-        """returns block timestamp in data file"""
-        return self._timestamp
+    def __str__(self):
+        return f'{self.index}\t{self.block_id}\t{self.block_type}\t{self.stream_id}\t{self.stream_type}\t' \
+               f'{self.duration}\t{self.flags}\t{self.block_size}\t{self.timestamp}\t{self.ts_rel}'
 
     @property
     def relative_timestamp(self):
         """returns block relative timestamp in data file"""
-        return self._ts_rel
+        return self.ts_rel
 
     def __len__(self):
-        return self._size
-
-    def __repr__(self):
-        return "size="+str(self._block[0]) + \
-               " index="+str(int.from_bytes(self._block[59:67], 'little')) + \
-               " block id="+str(int.from_bytes(self._block[67:75], 'little')) + \
-               " block type="+str(self._block[1]) + \
-               " stream id="+str(self._stream_id) + \
-               " stream type="+str(self._block[2]) + \
-               " duration="+str(int.from_bytes(self._block[19:27], 'little')) + \
-               " flags="+hex(int.from_bytes(self._block[11:19], 'little')) + \
-               " block size="+str(self._size) + \
-               " timestamp="+str(self._timestamp) + \
-               " ts="+str(self._ts_rel) + \
-               " dts="+str(int.from_bytes(self._block[39:43], 'little')) + \
-               " offset="+str(self._offset) + \
-               " mark="+hex(int.from_bytes(self._block[75:77], 'little'))
+        return self.block_size
 
 
 class IndexIterator:
@@ -144,7 +132,7 @@ class Data:
     def __len__(self):
         return self._size
 
-    def frame(self, block):
+    def frame(self, block) -> bytes:
         """Returns data frame by index block offset and index block size"""
         self._file_desc.seek(block.offset-len(block), 0)
         return self._file_desc.read(len(block))
