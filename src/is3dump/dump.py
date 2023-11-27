@@ -138,7 +138,3 @@ class AnnexBDump(Dump):
         """Checks if block can be dumped"""
         return self._sps_dumped and self._pps_dumped
 
-
-def dump():
-    if (dumper := Dump.make(sys.argv[1:])) is not None:
-        dumper.write()
