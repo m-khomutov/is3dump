@@ -76,10 +76,10 @@ def make_stream_files(channel_path: str):
                 avc_stream.on_block(blk, data)
             elif blk.stream_type == 3:
                 aac_stream.on_block(blk, data)
-            if avc_stream.ready() and aac_stream.ready():
+            if avc_stream.ready():
                 with open('stream.0.1.json', 'w') as f:
                     f.write(str(avc_stream))
+            if aac_stream.ready():
                 with open('stream.2.3.json', 'w') as f:
                     f.write(str(aac_stream))
-                break
         break
