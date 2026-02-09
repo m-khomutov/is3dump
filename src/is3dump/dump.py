@@ -63,14 +63,21 @@ class Dump:
             print('invalid path: ', io_error)
             sys.exit()
 
+    @staticmethod
+    def set_range_limit(range_limit):
+        s = str(range_limit)
+        if len(s) < 13:
+            s += '0' * (13 - len(s))
+        return int(s)
+
     def __init__(self, filename, channel, **kwargs):
         self._filename = filename
         self._channel = channel
         self._channel_id = kwargs.get('channel_id', '')
         self._stream_id = kwargs.get('stream_id', 0)
         dump_range = kwargs.get('range', ())
-        self._begin = dump_range[0] if len(dump_range) > 0 else 0
-        self._end = dump_range[1] if len(dump_range) > 1 else 0
+        self._begin = self.set_range_limit(dump_range[0]) if len(dump_range) > 0 else 0
+        self._end = self.set_range_limit(dump_range[1]) if len(dump_range) > 1 else 0
         self._verbose = kwargs.get('verbose', False)
 
     @property
@@ -86,7 +93,7 @@ class Dump:
     def write(self):
         """abstract method redefined in id3 decorator with main goal to call write_chunks method"""
 
-    def _write_block(self, file, data):
+    def _write_block(self, file, data, duration):
         pass
 
     def write_chunks(self, file):
@@ -98,7 +105,7 @@ class Dump:
                     if blk.timestamp >= self._begin:
                         if self._verbose:
                             print('{}'.format(blk))
-                        self._write_block(file, data.frame(blk))
+                        self._write_block(file, data.frame(blk), blk.duration)
 
 
 class AacDump(Dump):
@@ -107,7 +114,7 @@ class AacDump(Dump):
         super().__init__(filename, channel, **kwargs)
         self._config = kwargs.get('config', 0)
 
-    def _write_block(self, file, data):
+    def _write_block(self, file, data, duration):
         file.write(AudioDataTsHeader(config=self._config).encode(len(data)))
         file.write(data)
 
@@ -124,7 +131,15 @@ class AnnexBDump(Dump):
     _divider = b'\x00\x00\x00\x01'
     _sps_dumped, _pps_dumped = False, False
 
-    def _write_block(self, file, data):
+    def __init__(self, filename, channel, **kwargs):
+        super().__init__(filename, channel, **kwargs)
+        self._counter = 0
+        self._duration = 0.
+
+    def __del__(self):
+        print(f'DUMP from={self._begin}; to={self._end}; count={self._counter}; duration={self._duration} msec.')
+
+    def _write_block(self, file, data, duration):
         slice_type = int(data[0] & 0x1f)
         if slice_type == UnitType.SPS:
             self._sps_dumped = True
@@ -133,6 +148,9 @@ class AnnexBDump(Dump):
         if slice_type > UnitType.IDR or self._ready_to_write():
             file.write(self._divider)
             file.write(data)
+            if slice_type <= UnitType.IDR:
+                self._counter += 1
+            self._duration += duration
 
     def _ready_to_write(self):
         """Checks if block can be dumped"""
