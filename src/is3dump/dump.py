@@ -98,14 +98,19 @@ class Dump:
 
     def write_chunks(self, file):
         """dumps stream chunks from channel"""
+        written_range = [0, 0]
         for chunk in self._channel.chunks:
             data = Data(chunk.rstrip(".idx"))
             for blk in Index(chunk, self._end):
                 if blk.stream_id == self._stream_id and blk.offset < len(data):
                     if blk.timestamp >= self._begin:
+                        if not written_range[0]:
+                            written_range[0] = blk.timestamp
                         if self._verbose:
                             print('{}'.format(blk))
                         self._write_block(file, data.frame(blk), blk.duration)
+                        written_range[1] = blk.timestamp
+        self._begin, self._end = written_range
 
 
 class AacDump(Dump):
